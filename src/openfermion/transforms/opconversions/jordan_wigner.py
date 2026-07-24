@@ -132,8 +132,15 @@ def _jordan_wigner_diagonal_coulomb_hamiltonian(operator):
 def _add_term(terms, key, coefficient):
     """Add a single Pauli term into a dict, dropping it if it becomes negligible.
 
-    This mirrors QubitOperator.__iadd__/__isub__ for one term so that
-    accumulating strings into a dict matches building and summing QubitOperators.
+    This mirrors QubitOperator.__iadd__ and __isub__ for one term, so that
+    accumulating Pauli strings into a dict matches building and summing
+    single-term QubitOperators.
+
+    Args:
+        terms: The dict of Pauli string to coefficient to update in place.
+        key: The Pauli string to add to, as a sorted tuple of (index, action)
+            pairs.
+        coefficient: The value to add to the coefficient stored under key.
     """
     value = terms.get(key, 0) + coefficient
     if QubitOperator._issmall(value):
@@ -143,22 +150,38 @@ def _add_term(terms, key, coefficient):
 
 
 def _merge_terms(terms, contribution):
-    """Add every term of a contribution dict into terms."""
+    """Add every Pauli term of a contribution dict into an accumulator dict.
+
+    Args:
+        terms: The dict of Pauli string to coefficient to update in place.
+        contribution: The dict of Pauli string to coefficient to add into terms.
+    """
     for key, value in contribution.items():
         _add_term(terms, key, value)
 
 
 def _toggle_z(operators, index):
-    """Multiply a sorted Pauli string by a Z on the given qubit.
+    """Multiply a contiguous Pauli string by a Z on the given qubit.
 
-    In the only caller the qubit carries at most a parity Z, so Z squared
-    cancels to the identity and no phase is introduced.
+    The caller passes a string whose factors cover a contiguous run of qubits in
+    increasing order. If index falls outside that run the Z is prepended or
+    appended, and if it falls inside, the factor there is a parity Z which the
+    new Z cancels; Z squared is the identity and introduces no phase.
+
+    Args:
+        operators: The Pauli string, as a tuple of (index, action) pairs whose
+            indices are consecutive and increasing.
+        index: The qubit to multiply a Z onto.
+
+    Returns:
+        The resulting Pauli string, as a sorted tuple of (index, action) pairs.
     """
-    new_operators = [factor for factor in operators if factor[0] != index]
-    if len(new_operators) == len(operators):
-        new_operators.append((index, 'Z'))
-    new_operators.sort(key=lambda factor: factor[0])
-    return tuple(new_operators)
+    if index < operators[0][0]:
+        return ((index, 'Z'),) + operators
+    if index > operators[-1][0]:
+        return operators + ((index, 'Z'),)
+    position = index - operators[0][0]
+    return operators[:position] + operators[position + 1 :]
 
 
 def _jordan_wigner_interaction_op(iop, n_qubits=None):
@@ -231,7 +254,22 @@ def jordan_wigner_one_body(p, q, coefficient=1.0):
 
 
 def _one_body_terms(p, q, coefficient):
-    r"""Terms of a^\dagger_p a_q + h.c. under Jordan-Wigner, as a dict."""
+    r"""Terms of a^\dagger_p a_q + h.c. under Jordan-Wigner, as a dict.
+
+    Args:
+        p: The index of the raising operator.
+        q: The index of the lowering operator.
+        coefficient: The coefficient of the fermionic term.
+
+    Returns:
+        A dict mapping each Pauli string to its coefficient, leaving out the
+        strings whose coefficient is negligible.
+    """
+    # No string below takes more than half the coefficient, so a negligible
+    # coefficient leaves nothing behind.
+    if QubitOperator._issmall(coefficient):
+        return {}
+
     terms = {}
     # Handle off-diagonal terms.
     if p != q:
@@ -268,7 +306,24 @@ def jordan_wigner_two_body(p, q, r, s, coefficient=1.0):
 
 
 def _two_body_terms(p, q, r, s, coefficient):
-    r"""Terms of a^\dagger_p a^\dagger_q a_r a_s + h.c. under JW, as a dict."""
+    r"""Terms of a^\dagger_p a^\dagger_q a_r a_s + h.c. under JW, as a dict.
+
+    Args:
+        p: The index of the first raising operator.
+        q: The index of the second raising operator.
+        r: The index of the first lowering operator.
+        s: The index of the second lowering operator.
+        coefficient: The coefficient of the fermionic term.
+
+    Returns:
+        A dict mapping each Pauli string to its coefficient, leaving out the
+        strings whose coefficient is negligible.
+    """
+    # No string below takes more than a quarter of the coefficient, so a
+    # negligible coefficient leaves nothing behind.
+    if QubitOperator._issmall(coefficient):
+        return {}
+
     terms = {}
 
     # Return zero terms.
