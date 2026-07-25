@@ -254,7 +254,7 @@ def jordan_wigner_one_body(p, q, coefficient=1.0):
 
 
 def _one_body_terms(p, q, coefficient):
-    r"""Terms of a^\dagger_p a_q + h.c. under Jordan-Wigner, as a dict.
+    r"""Terms of $a^\dagger_p a_q + \text{h.c.}$ under Jordan-Wigner, as a dict.
 
     Args:
         p: The index of the raising operator.
@@ -306,7 +306,7 @@ def jordan_wigner_two_body(p, q, r, s, coefficient=1.0):
 
 
 def _two_body_terms(p, q, r, s, coefficient):
-    r"""Terms of a^\dagger_p a^\dagger_q a_r a_s + h.c. under JW, as a dict.
+    r"""Terms of $a^\dagger_p a^\dagger_q a_r a_s + \text{h.c.}$ under JW, as a dict.
 
     Args:
         p: The index of the first raising operator.
